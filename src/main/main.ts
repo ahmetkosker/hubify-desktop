@@ -112,7 +112,7 @@ const createWindow = async () => {
   // eslint-disable-next-line
   new AppUpdater();
 
-  const client = net.connect({ port: 3002, host: 'localhost' }, () => {
+  const client = net.connect({ port: 3002, host: '13.60.172.90' }, () => {
     const id = randomBytes(4);
     client.write(id);
     console.log('Connected to server');
