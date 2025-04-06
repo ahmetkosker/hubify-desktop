@@ -9,13 +9,13 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from 'path';
-import fs from 'fs';
 import { app, BrowserWindow, shell, ipcMain } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
-
+import net from 'net';
+import { randomBytes } from 'crypto';
 class AppUpdater {
   constructor() {
     log.transports.file.level = 'info';
@@ -30,11 +30,6 @@ ipcMain.on('ipc-example', async (event, arg) => {
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
   console.log(msgTemplate(arg));
   event.reply('ipc-example', msgTemplate('pong'));
-});
-
-ipcMain.on('greet', (event, arg) => {
-  console.log(arg);
-  fs.writeFileSync(`${arg}.txt`, arg);
 });
 
 if (process.env.NODE_ENV === 'production') {
@@ -116,6 +111,27 @@ const createWindow = async () => {
   // Remove this if your app does not use auto updates
   // eslint-disable-next-line
   new AppUpdater();
+
+  const client = net.connect({ port: 3002, host: 'localhost' }, () => {
+    const id = randomBytes(4);
+    client.write(id);
+    console.log('Connected to server');
+  });
+
+  client.on('data', (data) => {
+    console.log('Received from server:', data.toString());
+    if (mainWindow) {
+      mainWindow.webContents.send('server-message', data.toString());
+    }
+  });
+
+  ipcMain.on('sender', (event, message) => {
+    const payload = Buffer.from(message);
+    const header = Buffer.alloc(4);
+    header.writeUInt32BE(payload.length, 0);
+    const packet = Buffer.concat([header, payload]);
+    client.write(packet);
+  });
 };
 
 /**

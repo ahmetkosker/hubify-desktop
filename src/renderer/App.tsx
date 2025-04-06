@@ -1,53 +1,63 @@
+/* eslint-disable react/button-has-type */
 import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
-import { useState } from 'react';
-import icon from '../../assets/icon.svg';
 import './App.css';
+import { useState, useEffect } from 'react';
 
 function Hello() {
-  const [sender, setSender] = useState<string>('');
+  const [message, setMessage] = useState('');
+  const [serverMessages, setServerMessages] = useState<string[]>([]);
+
+  useEffect(() => {
+    const unsubscribe = window.electron.ipcRenderer.onServerMessage(
+      (serverMsg) => {
+        setServerMessages((prevMessages) => [...prevMessages, serverMsg]);
+      },
+    );
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
+  const handleSendMessage = () => {
+    if (message.trim()) {
+      window.electron.ipcRenderer.sender(message);
+      setMessage('');
+    }
+  };
 
   return (
-    <div>
-      <input
-        type="text"
-        value={sender}
-        onChange={(e) => setSender(e.target.value)}
-      />
-      <button
-        type="button"
-        onClick={() => window.electron.ipcRenderer.greet(sender)}
-      >
-        Greet
-      </button>
-      <div className="Hello">
-        <img width="200" alt="icon" src={icon} />
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        padding: '20px',
+        backgroundColor: '#f5f5f5',
+      }}
+    >
+      <div style={{ marginBottom: '20px' }}>
+        <input
+          type="text"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          style={{ padding: '8px', marginRight: '10px' }}
+        />
+        <button onClick={handleSendMessage}>Send</button>
       </div>
-      <h1>electron-react-asdasd</h1>
-      <div className="Hello">
-        <a
-          href="https://electron-react-boilerplate.js.org/"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <button type="button">
-            <span role="img" aria-label="books">
-              📚
-            </span>
-            Read our docs
-          </button>
-        </a>
-        <a
-          href="https://github.com/sponsors/electron-react-boilerplate"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <button type="button">
-            <span role="img" aria-label="folded hands">
-              🙏
-            </span>
-            Donate
-          </button>
-        </a>
+
+      <div
+        style={{
+          backgroundColor: 'white',
+          border: '1px solid #ddd',
+          borderRadius: '5px',
+          padding: '10px',
+          height: '300px',
+          overflowY: 'scroll',
+        }}
+      >
+        {serverMessages.map((msg) => (
+          <div style={{ marginBottom: '8px', color: 'black' }}>{msg}</div>
+        ))}
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 /* eslint no-unused-vars: off */
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 
-export type Channels = 'ipc-example';
+export type Channels = 'ipc-example' | 'sender' | 'server-message';
 
 const electronHandler = {
   ipcRenderer: {
@@ -21,8 +21,13 @@ const electronHandler = {
     once(channel: Channels, func: (...args: unknown[]) => void) {
       ipcRenderer.once(channel, (_event, ...args) => func(...args));
     },
-    greet: (message: string) => {
-      ipcRenderer.send('greet', message);
+    sender: (message: string) => ipcRenderer.send('sender', message),
+    onServerMessage: (callback: (message: string) => void) => {
+      const subscription = (_event: IpcRendererEvent, message: string) => callback(message);
+      ipcRenderer.on('server-message', subscription);
+      return () => {
+        ipcRenderer.removeListener('server-message', subscription);
+      };
     },
   },
 };
