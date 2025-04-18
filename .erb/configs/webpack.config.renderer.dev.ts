@@ -63,7 +63,38 @@ const configuration: webpack.Configuration = {
   module: {
     rules: [
       {
-        test: /\.s?(c|a)ss$/,
+        test: /\.css$/,
+        exclude: /\.module\.css$/,
+        use: [
+          'style-loader',
+          {
+            loader: 'css-loader',
+            options: {
+              importLoaders: 1,
+            },
+          },
+          'postcss-loader',
+        ],
+      },
+    
+      {
+        test: /\.module\.css$/,
+        use: [
+          'style-loader',
+          {
+            loader: 'css-loader',
+            options: {
+              modules: true,
+              sourceMap: true,
+              importLoaders: 1,
+            },
+          },
+          'postcss-loader',
+        ],
+      },
+    
+      {
+        test: /\.module\.s[ac]ss$/,
         use: [
           'style-loader',
           {
@@ -76,24 +107,24 @@ const configuration: webpack.Configuration = {
           },
           'sass-loader',
         ],
-        include: /\.module\.s?(c|a)ss$/,
       },
+    
       {
-        test: /\.s?css$/,
+        test: /\.s[ac]ss$/,
+        exclude: /\.module\.s[ac]ss$/,
         use: ['style-loader', 'css-loader', 'sass-loader'],
-        exclude: /\.module\.s?(c|a)ss$/,
       },
-      // Fonts
+    
       {
         test: /\.(woff|woff2|eot|ttf|otf)$/i,
         type: 'asset/resource',
       },
-      // Images
+    
       {
         test: /\.(png|jpg|jpeg|gif)$/i,
         type: 'asset/resource',
       },
-      // SVG
+    
       {
         test: /\.svg$/,
         use: [
@@ -113,6 +144,8 @@ const configuration: webpack.Configuration = {
         ],
       },
     ],
+    
+    
   },
   plugins: [
     ...(skipDLLs

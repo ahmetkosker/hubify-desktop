@@ -39,37 +39,72 @@ const configuration: webpack.Configuration = {
   module: {
     rules: [
       {
-        test: /\.s?(a|c)ss$/,
+        test: /\.css$/,
+        exclude: /\.module\.css$/,
+        use: [
+          MiniCssExtractPlugin.loader,
+          {
+            loader: 'css-loader',
+            options: {
+              importLoaders: 1,
+            },
+          },
+          'postcss-loader',
+        ],
+      },
+    
+      {
+        test: /\.module\.css$/,
         use: [
           MiniCssExtractPlugin.loader,
           {
             loader: 'css-loader',
             options: {
               modules: true,
-              sourceMap: true,
+              sourceMap: false,
+              importLoaders: 1,
+            },
+          },
+          'postcss-loader',
+        ],
+      },
+    
+      {
+        test: /\.module\.s[ac]ss$/,
+        use: [
+          MiniCssExtractPlugin.loader,
+          {
+            loader: 'css-loader',
+            options: {
+              modules: true,
+              sourceMap: false,
               importLoaders: 1,
             },
           },
           'sass-loader',
         ],
-        include: /\.module\.s?(c|a)ss$/,
       },
+    
       {
-        test: /\.s?css$/,
-        use: [MiniCssExtractPlugin.loader, 'css-loader', 'sass-loader'],
-        exclude: /\.module\.s?(c|a)ss$/,
+        test: /\.s[ac]ss$/,
+        exclude: /\.module\.s[ac]ss$/,
+        use: [
+          MiniCssExtractPlugin.loader,
+          'css-loader',
+          'sass-loader',
+        ],
       },
-      // Fonts
+    
       {
         test: /\.(woff|woff2|eot|ttf|otf)$/i,
         type: 'asset/resource',
       },
-      // Images
+    
       {
         test: /\.(png|jpg|jpeg|gif)$/i,
         type: 'asset/resource',
       },
-      // SVG
+    
       {
         test: /\.svg$/,
         use: [
@@ -89,6 +124,7 @@ const configuration: webpack.Configuration = {
         ],
       },
     ],
+    
   },
 
   optimization: {
