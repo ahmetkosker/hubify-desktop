@@ -16,6 +16,8 @@ import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import net from 'net';
 import { randomBytes } from 'crypto';
+import { Buffer } from 'node:buffer';
+
 class AppUpdater {
   constructor() {
     log.transports.file.level = 'info';
@@ -23,6 +25,54 @@ class AppUpdater {
     autoUpdater.checkForUpdatesAndNotify();
   }
 }
+
+enum Mode {
+  WAIT_SIZE = 'wait_size',
+  COLLECT_DATA = 'collect_data',
+}
+
+const streamDataConverter = (onPackage: (data: Buffer) => void) => {
+  let bucket = Buffer.alloc(0);
+  let mode: Mode = Mode.WAIT_SIZE;
+  let totalSize = 0;
+  const pushData = (data: Buffer) => {
+    bucket = Buffer.concat([bucket, data]);
+
+    const processChunk = () => {
+      switch (mode) {
+        case Mode.WAIT_SIZE:
+          if (bucket.length >= 4) {
+            totalSize = bucket.readUInt32BE(0);
+            bucket = bucket.subarray(4);
+            mode = Mode.COLLECT_DATA;
+            processChunk();
+          }
+          break;
+
+        case Mode.COLLECT_DATA:
+          if (bucket.length >= totalSize) {
+            console.log('package received', totalSize);
+            const messageData = bucket.subarray(0, totalSize);
+            bucket = bucket.subarray(totalSize);
+
+            onPackage(messageData);
+            mode = Mode.WAIT_SIZE;
+            totalSize = 0;
+
+            processChunk();
+          }
+          break;
+
+        default:
+          break;
+      }
+    };
+
+    processChunk();
+  };
+
+  return { pushData };
+};
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -112,17 +162,23 @@ const createWindow = async () => {
   // eslint-disable-next-line
   new AppUpdater();
 
-  const client = net.connect({ port: 3002, host: '13.60.172.90' }, () => {
+  const client = net.connect({ port: 3002 }, () => {
     const id = randomBytes(4);
     client.write(id);
     console.log('Connected to server');
   });
 
-  client.on('data', (data) => {
-    console.log('Received from server:', data.toString());
+  const converter = streamDataConverter((completeData) => {
+    const dataString = completeData.toString();
+    console.log('Received complete message from server:', dataString);
     if (mainWindow) {
-      mainWindow.webContents.send('server-message', data.toString());
+      mainWindow.webContents.send('server-message', dataString);
     }
+  });
+
+  client.on('data', (data) => {
+    console.log('Received raw data from server');
+    converter.pushData(data);
   });
 
   ipcMain.on('sender', (event, message) => {
