@@ -15,6 +15,7 @@ import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import net from 'net';
+import { createSocket, Socket } from 'node:dgram';
 import { randomBytes } from 'crypto';
 import { Buffer } from 'node:buffer';
 
@@ -51,7 +52,6 @@ const streamDataConverter = (onPackage: (data: Buffer) => void) => {
 
         case Mode.COLLECT_DATA:
           if (bucket.length >= totalSize) {
-            console.log('package received', totalSize);
             const messageData = bucket.subarray(0, totalSize);
             bucket = bucket.subarray(totalSize);
 
@@ -132,7 +132,8 @@ const createWindow = async () => {
     },
   });
 
-  mainWindow.loadURL(resolveHtmlPath('index.html'));
+  const selectedPort = Number(process.env.PORT) || 1212;
+  mainWindow.loadURL(resolveHtmlPath('index.html', selectedPort));
 
   mainWindow.on('ready-to-show', () => {
     if (!mainWindow) {
@@ -152,34 +153,41 @@ const createWindow = async () => {
   const menuBuilder = new MenuBuilder(mainWindow);
   menuBuilder.buildMenu();
 
-  // Open urls in the user's browser
   mainWindow.webContents.setWindowOpenHandler((edata) => {
     shell.openExternal(edata.url);
     return { action: 'deny' };
   });
 
-  // Remove this if your app does not use auto updates
-  // eslint-disable-next-line
   new AppUpdater();
 
   const client = net.connect({ port: 3002 }, () => {
     const id = randomBytes(4);
     client.write(id);
-    console.log('Connected to server');
   });
 
   const converter = streamDataConverter((completeData) => {
-    const dataString = completeData.toString();
-    console.log('Received complete message from server:', dataString);
-    if (mainWindow) {
-      mainWindow.webContents.send('server-message', dataString);
-    }
+    const message = completeData.toString();
+    mainWindow?.webContents.send('server-message', message);
   });
 
   client.on('data', (data) => {
-    console.log('Received raw data from server');
     converter.pushData(data);
   });
+
+  const udpClient = createSocket('udp4');
+
+  const udpBinder = ({
+    host,
+    port,
+    message,
+  }: {
+    host: string;
+    port: number;
+    message: string;
+  }) => {
+    console.log(message, port, host);
+    udpClient.send(message, port, host);
+  };
 
   ipcMain.on('sender', (event, message) => {
     const payload = Buffer.from(message);
@@ -187,6 +195,15 @@ const createWindow = async () => {
     header.writeUInt32BE(payload.length, 0);
     const packet = Buffer.concat([header, payload]);
     client.write(packet);
+  });
+
+  ipcMain.on('sendUpd', (event, arg) => {
+    const { message, port, host } = arg;
+    udpBinder({
+      host: host,
+      port: port,
+      message,
+    });
   });
 };
 

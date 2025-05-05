@@ -22,8 +22,11 @@ const electronHandler = {
       ipcRenderer.once(channel, (_event, ...args) => func(...args));
     },
     sender: (message: string) => ipcRenderer.send('sender', message),
+    sendUpd: (message: string, port: number, host: string) =>
+      ipcRenderer.send('sendUpd', { message, port, host }),
     onServerMessage: (callback: (message: string) => void) => {
-      const subscription = (_event: IpcRendererEvent, message: string) => callback(message);
+      const subscription = (_event: IpcRendererEvent, message: string) =>
+        callback(message);
       ipcRenderer.on('server-message', subscription);
       return () => {
         ipcRenderer.removeListener('server-message', subscription);

@@ -13,10 +13,16 @@ interface ChatMessage {
 function Hello() {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [port, setPort] = useState<number>(0);
 
   useEffect(() => {
     const unsubscribe = window.electron.ipcRenderer.onServerMessage(
       (serverMsg) => {
+        if (serverMsg.includes('port')) {
+          const newPort = parseInt(serverMsg.split(' ')[1].trim(), 10);
+          setPort(newPort);
+          return;
+        }
         setMessages((prevMessages) => [
           ...prevMessages,
           { text: serverMsg, type: 'server', timestamp: new Date() },
@@ -27,9 +33,14 @@ function Hello() {
     return () => {
       if (unsubscribe) unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSendMessage = () => {
+    if (port !== 0) {
+      window.electron.ipcRenderer.sendUpd(message, port, '172.21.191.255');
+      return;
+    }
     if (message.trim()) {
       setMessages((prevMessages) => [
         ...prevMessages,
